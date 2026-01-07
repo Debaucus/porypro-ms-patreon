@@ -1,0 +1,35 @@
+{
+  "name": "porypro-ms-patreon",
+  "version": "1.0.0",
+  "description": "MicroService to manage data between Patreon and Main Server. Will monitor changes to subscriptions in order to handle services turning on and off.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "build": "tsc",
+    "test:webhook": "tsx scripts/test-webhook.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Debaucus/porypro-ms-patreon.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Debaucus/porypro-ms-patreon/issues"
+  },
+  "homepage": "https://github.com/Debaucus/porypro-ms-patreon#readme",
+  "dependencies": {
+    "@hono/node-server": "^1.19.7",
+    "@libsql/client": "^0.17.0",
+    "dotenv": "^17.2.3",
+    "hono": "^4.11.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.3",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}
