@@ -12,7 +12,9 @@ export class PatreonClient {
 
   async fetchAllMembers() {
     let allMembers: any[] = [];
-    let nextUrl: string | undefined = `${this.baseUrl}/campaigns/${this.campaignId}/members?include=user,currently_entitled_tiers&fields%5Bmember%5D=email,full_name,patron_status,currently_entitled_amount_cents,last_charge_date,last_charge_status,lifetime_support_cents,will_pay_amount_cents&fields%5Buser%5D=social_connections&fields%5Btier%5D=title,amount_cents`;
+    let nextUrl:
+      | string
+      | undefined = `${this.baseUrl}/campaigns/${this.campaignId}/members?include=user,currently_entitled_tiers&fields%5Bmember%5D=email,full_name,patron_status,currently_entitled_amount_cents,last_charge_date,last_charge_status,lifetime_support_cents,will_pay_amount_cents,is_follower,is_free_trial,is_gifted,next_charge_date&fields%5Buser%5D=social_connections&fields%5Btier%5D=title,amount_cents`;
 
     while (nextUrl) {
       console.log(`Fetching members from: ${nextUrl}`);
@@ -60,6 +62,10 @@ export class PatreonClient {
         amountCents: member.attributes.currently_entitled_amount_cents,
         discordId: discordId,
         lastChargeStatus: member.attributes.last_charge_status,
+        isFollower: member.attributes.is_follower,
+        isFreeTrial: member.attributes.is_free_trial,
+        isGifted: member.attributes.is_gifted,
+        nextChargeDate: member.attributes.next_charge_date,
       };
     });
   }

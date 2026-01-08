@@ -10,6 +10,10 @@ export interface PatreonMember {
     last_charge_status: string | null;
     lifetime_support_cents: number;
     will_pay_amount_cents: number;
+    is_follower: boolean;
+    is_free_trial: boolean;
+    is_gifted: boolean;
+    next_charge_date: string | null;
   };
   relationships: {
     user?: {
