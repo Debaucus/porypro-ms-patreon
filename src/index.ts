@@ -3,6 +3,7 @@ import { serve } from '@hono/node-server';
 import { config } from 'dotenv';
 import { verifyPatreonSignature } from './patreon/verify';
 import { handleWebhookEvent } from './handlers';
+import { syncPatreonData } from "./sync";
 
 import { logger } from "hono/logger";
 
@@ -60,6 +61,26 @@ const webhookHandler = async (c: any) => {
 
 app.post("/webhook", webhookHandler);
 app.post("/", webhookHandler);
+
+app.get("/sync", async (c) => {
+  try {
+    const data = await syncPatreonData();
+    return c.json({
+      success: true,
+      count: data.length,
+      data: data,
+    });
+  } catch (error: any) {
+    console.error("Sync failed:", error);
+    return c.json(
+      {
+        success: false,
+        error: error.message,
+      },
+      500
+    );
+  }
+});
 
 if (existsSync(certPath) && existsSync(keyPath)) {
   console.log(`SSL certificates found. Starting HTTPS server on port ${PORT}`);
