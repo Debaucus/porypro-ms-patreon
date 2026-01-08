@@ -23,6 +23,7 @@ export async function handleWebhookEvent(
     isFreeTrial: attributes.is_free_trial,
     isGifted: attributes.is_gifted,
     nextChargeDate: attributes.next_charge_date,
+    lastUpdated: Date.now(),
   };
 
   switch (event) {

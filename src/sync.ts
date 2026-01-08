@@ -11,11 +11,22 @@ export async function syncPatreonData() {
 
   const client = new PatreonClient(token, campaignId);
   console.log("Starting full Patreon data sync...");
-  const data = await client.fetchAllMembers();
+  const syncStartTime = Date.now();
 
-  store.setMembers(data);
+  const rawData = await client.fetchAllMembers();
 
-  console.log(`Sync complete. Fetched and stored ${data.length} members.`);
+  // Tag all synced members with the syncStartTime
+  const membersWithTimestamps = rawData.map((m) => ({
+    ...m,
+    lastUpdated: syncStartTime,
+  }));
 
-  return data;
+  store.setMembers(membersWithTimestamps);
+  store.purgeStale(syncStartTime);
+
+  console.log(
+    `Sync complete. Fetched and stored ${membersWithTimestamps.length} members.`
+  );
+
+  return membersWithTimestamps;
 }
