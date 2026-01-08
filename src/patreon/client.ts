@@ -3,7 +3,8 @@ import { PatreonCollectionResponse, PatreonMember, PatreonUser } from './types';
 export class PatreonClient {
   private token: string;
   private campaignId: string;
-  private baseUrl = 'https://www.patreon.com/api/oauth2/v2';
+  private baseUrl = "https://www.patreon.com/api/oauth2/v2";
+  private pageCount = 1;
 
   constructor(token: string, campaignId: string) {
     this.token = token;
@@ -17,7 +18,8 @@ export class PatreonClient {
       | undefined = `${this.baseUrl}/campaigns/${this.campaignId}/members?include=user,currently_entitled_tiers&fields%5Bmember%5D=email,full_name,patron_status,currently_entitled_amount_cents,last_charge_date,last_charge_status,lifetime_support_cents,will_pay_amount_cents,is_follower,is_free_trial,is_gifted,next_charge_date&fields%5Buser%5D=social_connections&fields%5Btier%5D=title,amount_cents`;
 
     while (nextUrl) {
-      console.log(`Fetching members from: ${nextUrl}`);
+      console.log(`Fetching Patreon Data - Current Page: ${this.pageCount}`);
+      this.pageCount++;
       const response = await fetch(nextUrl, {
         headers: {
           Authorization: `Bearer ${this.token}`,
@@ -29,8 +31,9 @@ export class PatreonClient {
         throw new Error(`Patreon API error: ${response.status} ${errorText}`);
       }
 
-      const payload: PatreonCollectionResponse<PatreonMember> = await response.json();
-      
+      const payload: PatreonCollectionResponse<PatreonMember> =
+        await response.json();
+
       const members = this.processResponse(payload);
       allMembers = allMembers.concat(members);
 
@@ -42,17 +45,18 @@ export class PatreonClient {
 
   private processResponse(payload: PatreonCollectionResponse<PatreonMember>) {
     const includedUsers = new Map<string, PatreonUser>();
-    
+
     payload.included?.forEach((item: any) => {
-      if (item.type === 'user') {
+      if (item.type === "user") {
         includedUsers.set(item.id, item as PatreonUser);
       }
     });
 
-    return payload.data.map(member => {
+    return payload.data.map((member) => {
       const userId = member.relationships.user?.data.id;
       const user = userId ? includedUsers.get(userId) : null;
-      const discordId = user?.attributes.social_connections.discord?.user_id || null;
+      const discordId =
+        user?.attributes.social_connections.discord?.user_id || null;
 
       return {
         id: member.id,
