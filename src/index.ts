@@ -4,6 +4,7 @@ import { config } from 'dotenv';
 import { verifyPatreonSignature } from './patreon/verify';
 import { handleWebhookEvent } from './handlers';
 import { syncPatreonData } from "./sync";
+import { store } from "./store";
 
 import { logger } from "hono/logger";
 
@@ -80,6 +81,19 @@ app.get("/sync", async (c) => {
       500
     );
   }
+});
+
+app.get("/members", (c) => {
+  return c.json({
+    success: true,
+    count: store.getCount(),
+    data: store.getAll(),
+  });
+});
+
+// Startup Sync
+syncPatreonData().catch((err) => {
+  console.error("Initial startup sync failed:", err.message);
 });
 
 if (existsSync(certPath) && existsSync(keyPath)) {
