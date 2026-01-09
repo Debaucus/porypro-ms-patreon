@@ -130,9 +130,19 @@ app.get("/members", (c) => {
   });
 });
 
-app.get("/stats", (c) => {
+app.get("/stats", async (c) => {
   const dragoniteAreas = dragoniteStore.getAllAreas();
-  const comparisonStats = store.getComparisonStats(dragoniteAreas);
+
+  // Create client for live verification
+  const url = process.env.DRAGONITE_API_URL || "";
+  const secret = process.env.DRAGONITE_API_SECRET || "";
+  const dragoniteClient =
+    url && secret ? new DragoniteClient(url, secret) : undefined;
+
+  const comparisonStats = await store.getComparisonStats(
+    dragoniteAreas,
+    dragoniteClient
+  );
 
   return c.json({
     success: true,

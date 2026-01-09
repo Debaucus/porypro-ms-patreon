@@ -51,11 +51,11 @@ export class DragoniteClient {
   }
 
   /**
-   * Placeholder for future endpoints that use DragoniteTypes
+   * Fetches details for a single area.
+   * Endpoint: /api/areas/{id}
    */
-  async getDragoniteDetails(id: number): Promise<DragoniteTypes> {
-    // Example implementation for a hypothetical endpoint
-    const endpoint = `${this.url}/api/dragonite/${id}`;
+  async getArea(id: number): Promise<{ name: string; [key: string]: any }> {
+    const endpoint = `${this.url}/api/areas/${id}`;
     const response = await fetch(endpoint, {
       headers: {
         Cookie: `authorized=${this.secret}`,
@@ -68,6 +68,7 @@ export class DragoniteClient {
       throw new Error(`Dragonite API error: ${response.status} ${errorText}`);
     }
 
-    return (await response.json()) as DragoniteTypes;
+    const json = await response.json();
+    return json.data || json;
   }
 }

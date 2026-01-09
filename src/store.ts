@@ -1,6 +1,7 @@
 import { DragoniteArea } from "./dragonite/types";
 import { kofiMembers } from "./kofi";
 import { uuidToPatreonId } from "./mappings";
+import { DragoniteClient } from "./dragonite/client";
 
 export interface MemberData {
   id: string;
@@ -102,7 +103,10 @@ class MemberStore {
     };
   }
 
-  getComparisonStats(dragoniteAreas: DragoniteArea[]) {
+  async getComparisonStats(
+    dragoniteAreas: DragoniteArea[],
+    dragoniteClient?: DragoniteClient
+  ) {
     const scannerTiers: Record<string, number> = {
       "22667833": 0,
       "22667844": 1,
@@ -116,6 +120,7 @@ class MemberStore {
     };
 
     const results = {
+      completed: [] as any[],
       matches: [] as any[],
       noPatreonMatch: {
         enabled: [] as any[],
@@ -136,6 +141,32 @@ class MemberStore {
       },
     };
 
+    // 1. Live Name Verification for Enabled Areas
+    if (dragoniteClient) {
+      console.log(
+        "Performing live area name verification for enabled areas..."
+      );
+      const enabledAreas = dragoniteAreas.filter((a) => a.enabled);
+
+      await Promise.all(
+        enabledAreas.map(async (area) => {
+          try {
+            const liveArea = await dragoniteClient.getArea(area.id);
+            if (liveArea && liveArea.name && liveArea.name !== area.name) {
+              console.log(
+                `[LiveSync] Area ${area.id} name replaced: "${area.name}" -> "${liveArea.name}"`
+              );
+              area.name = liveArea.name;
+            }
+          } catch (error: any) {
+            console.warn(
+              `[LiveSync] Failed to fetch area ${area.id}: ${error.message}`
+            );
+          }
+        })
+      );
+    }
+
     // Index members by Discord ID and Patreon ID for faster lookup
     const membersByDiscordId = new Map<string, MemberData>();
     const membersByPatreonId = new Map<string, MemberData>();
@@ -155,6 +186,7 @@ class MemberStore {
 
     // Process Dragonite Areas
     const areaMapByDiscordId = new Map<string, any[]>();
+    const completedDiscordIds = new Set<string>();
     const uniqueUuidSet = new Set<string>();
     const uuidRegex =
       /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
@@ -163,6 +195,21 @@ class MemberStore {
       // Collect unique UUIDs from ALL areas
       const uuidMatch = area.name.match(uuidRegex);
       if (uuidMatch) uniqueUuidSet.add(uuidMatch[0]);
+
+      // 0. Patreon ID Prefix Match (Highest Confidence)
+      const patreonIdPrefixMatch = area.name.match(/^(\d+)/);
+      if (patreonIdPrefixMatch) {
+        const patreonId = patreonIdPrefixMatch[1];
+        const member = membersByPatreonId.get(patreonId);
+        if (member && member.discordId) {
+          if (!areaMapByDiscordId.has(member.discordId)) {
+            areaMapByDiscordId.set(member.discordId, []);
+          }
+          areaMapByDiscordId.get(member.discordId)?.push(area);
+          completedDiscordIds.add(member.discordId);
+          return;
+        }
+      }
 
       // 1. Try Discord ID Match (17-20 digits)
       const discordIdMatch = area.name.match(/(\d{17,20})/);
@@ -263,6 +310,7 @@ class MemberStore {
         let allowedScanners = 0;
         let name = "";
         let source = "";
+        let patreonId = null;
 
         if (member) {
           member.tiers.forEach((t) => {
@@ -270,6 +318,7 @@ class MemberStore {
           });
           name = member.fullName;
           source = "Patreon";
+          patreonId = member.patreonId;
         } else if (kofi) {
           allowedScanners = kofi.allowedScanners;
           name = kofi.fullName;
@@ -277,15 +326,21 @@ class MemberStore {
         }
 
         const isMismatch = totalExpectedWorkers !== allowedScanners;
-
-        results.matches.push({
+        const resultEntry = {
           ...areaSummary,
           name,
           source,
+          patreonId,
           allowedScanners,
           isMismatch,
           mismatchAndEnabled: isMismatch && areaSummary.enabled,
-        });
+        };
+
+        if (completedDiscordIds.has(discordId)) {
+          results.completed.push(resultEntry);
+        } else {
+          results.matches.push(resultEntry);
+        }
         matchedPatreonDiscordIds.add(discordId);
       } else {
         if (areaSummary.enabled) {
@@ -306,6 +361,7 @@ class MemberStore {
 
         results.noDragoniteMatch.push({
           discordId,
+          patreonId: member.patreonId,
           name: member.fullName,
           source: "Patreon",
           allowedScanners,
@@ -318,6 +374,7 @@ class MemberStore {
       if (!matchedPatreonDiscordIds.has(discordId)) {
         results.noDragoniteMatch.push({
           discordId,
+          patreonId: null,
           name: kofi.fullName,
           source: "Ko-Fi",
           allowedScanners: kofi.allowedScanners,
