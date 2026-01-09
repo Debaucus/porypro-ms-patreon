@@ -31,13 +31,23 @@ export class DragoniteClient {
       throw new Error(`Dragonite API error: ${response.status} ${errorText}`);
     }
 
-    const json = (await response.json()) as DragoniteStatusResponse;
+    const json = (await response.json()) as
+      | DragoniteStatusResponse
+      | DragoniteStatusData;
 
-    if (!json.success) {
-      throw new Error(`Dragonite API returned success: false`);
+    // Handle wrapped response: { "success": true, "data": { "areas": [...] } }
+    if ("success" in json && json.success === true && json.data) {
+      return json.data;
     }
 
-    return json.data;
+    // Handle direct response: { "areas": [...] }
+    if ("areas" in json) {
+      return json;
+    }
+
+    throw new Error(
+      `Dragonite API returned unexpected format: ${JSON.stringify(json)}`
+    );
   }
 
   /**

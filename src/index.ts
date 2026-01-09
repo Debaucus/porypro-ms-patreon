@@ -32,7 +32,8 @@ const originMiddleware = async (c: any, next: any) => {
   }
 
   // IP Whitelist Bypass
-  const clientIp = c.req.header("CF-Connecting-IP");
+  const clientIp =
+    c.req.header("CF-Connecting-IP") || c.req.header("X-Forwarded-For");
   const allowedIps = (process.env.ALLOWED_IPS || "")
     .split(",")
     .map((ip) => ip.trim())
@@ -42,9 +43,14 @@ const originMiddleware = async (c: any, next: any) => {
     return await next();
   }
 
-  const allowedOrigin =
-    process.env.ALLOWED_ORIGIN || "https://patweb.pory.pro/";
-  const origin = c.req.header("Origin") || c.req.header("Referer");
+  const allowedOrigin = (
+    process.env.ALLOWED_ORIGIN || "https://patweb.pory.pro/"
+  ).replace(/\/$/, "");
+  const origin = (
+    c.req.header("Origin") ||
+    c.req.header("Referer") ||
+    ""
+  ).replace(/\/$/, "");
 
   // Allow if Origin or Referer starts with the allowed origin
   if (origin && origin.startsWith(allowedOrigin)) {
@@ -151,7 +157,10 @@ app.get("/dragonite/status", async (c) => {
       data: status,
     });
   } catch (error: any) {
-    console.error("Failed to fetch Dragonite status:", error);
+    console.error(
+      `Failed to fetch Dragonite status from ${url}:`,
+      error.message
+    );
     return c.json(
       {
         success: false,
