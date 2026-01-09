@@ -84,22 +84,31 @@ class MemberStore {
       "23779302": 10,
     };
 
-    let totalScanners = 0;
+    let patreonScannersTotal = 0;
     let activePatronCount = 0;
 
     for (const member of this.members.values()) {
       if (member.status === "active_patron") {
         activePatronCount++;
         member.tiers.forEach((t) => {
-          totalScanners += scannerTiers[t.id] || 0;
+          patreonScannersTotal += scannerTiers[t.id] || 0;
         });
       }
     }
 
+    const kofiScannersTotal = kofiMembers.reduce(
+      (sum, k) => sum + k.allowedScanners,
+      0
+    );
+    const activeKofiCount = kofiMembers.length;
+
     return {
-      totalScanners,
+      totalScanners: patreonScannersTotal + kofiScannersTotal,
+      patreonScannersTotal,
+      kofiScannersTotal,
       activePatronCount,
-      totalMembers: this.members.size,
+      activeKofiCount,
+      totalMembers: this.members.size + activeKofiCount,
     };
   }
 
