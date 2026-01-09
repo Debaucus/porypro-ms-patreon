@@ -28,8 +28,6 @@ const PORT = Number(process.env.PORT) || 8443;
 const certPath = join(process.cwd(), "keys", "cert.pem");
 const keyPath = join(process.cwd(), "keys", "key.pem");
 
-app.get("/", (c) => c.text("Porypro Patreon Microservice is running!"));
-
 app.notFound((c) => {
   console.log(`404 Not Found: ${c.req.method} ${c.req.url}`);
   return c.text("Not Found", 404);
@@ -60,7 +58,6 @@ const webhookHandler = async (c: any) => {
   }
 };
 
-app.post("/webhook", webhookHandler);
 app.post("/", webhookHandler);
 
 app.get("/sync", async (c) => {
