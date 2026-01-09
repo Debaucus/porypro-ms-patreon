@@ -65,6 +65,38 @@ class MemberStore {
   getCount() {
     return this.members.size;
   }
+
+  getScannerStats() {
+    const scannerTiers: Record<string, number> = {
+      "22667833": 0,
+      "22667844": 1,
+      "23548893": 1,
+      "23548931": 2,
+      "23548958": 3,
+      "23548990": 4,
+      "23549000": 5,
+      "23779295": 7,
+      "23779302": 10,
+    };
+
+    let totalScanners = 0;
+    let activePatronCount = 0;
+
+    for (const member of this.members.values()) {
+      if (member.status === "active_patron") {
+        activePatronCount++;
+        member.tiers.forEach((t) => {
+          totalScanners += scannerTiers[t.id] || 0;
+        });
+      }
+    }
+
+    return {
+      totalScanners,
+      activePatronCount,
+      totalMembers: this.members.size,
+    };
+  }
 }
 
 export const store = new MemberStore();

@@ -72,19 +72,3 @@ export interface PatreonWebhookPayload {
   included?: any[];
 }
 
-export interface ScanTiers {
-  tier: string;
-  scanners: number;
-}
-
-export const scannerTiers: ScanTiers[] = [
-  { tier: "22667833", scanners: 0 },
-  { tier: "22667844", scanners: 1 },
-  { tier: "23548893", scanners: 1 },
-  { tier: "23548931", scanners: 2 },
-  { tier: "23548958", scanners: 3 },
-  { tier: "23548990", scanners: 4 },
-  { tier: "23549000", scanners: 5 },
-  { tier: "23779295", scanners: 7 },
-  { tier: "23779302", scanners: 10 },
-];

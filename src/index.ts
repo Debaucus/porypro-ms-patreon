@@ -88,6 +88,13 @@ app.get("/members", (c) => {
   });
 });
 
+app.get("/stats", (c) => {
+  return c.json({
+    success: true,
+    stats: store.getScannerStats(),
+  });
+});
+
 // Startup Sync
 syncPatreonData().catch((err) => {
   console.error("Initial startup sync failed:", err.message);
