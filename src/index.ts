@@ -31,6 +31,17 @@ const originMiddleware = async (c: any, next: any) => {
     return await next();
   }
 
+  // IP Whitelist Bypass
+  const clientIp = c.req.header("CF-Connecting-IP");
+  const allowedIps = (process.env.ALLOWED_IPS || "")
+    .split(",")
+    .map((ip) => ip.trim())
+    .filter((ip) => ip !== "");
+
+  if (clientIp && allowedIps.includes(clientIp)) {
+    return await next();
+  }
+
   const allowedOrigin =
     process.env.ALLOWED_ORIGIN || "https://patweb.pory.pro/";
   const origin = c.req.header("Origin") || c.req.header("Referer");
@@ -40,9 +51,9 @@ const originMiddleware = async (c: any, next: any) => {
     return await next();
   }
 
-  // To facilitate debugging, we log the rejected origin
+  // To facilitate debugging, we log the rejected origin and IP
   console.warn(
-    `Access denied for ${c.req.method} ${c.req.url} - Origin/Referer: ${origin}`
+    `Access denied for ${c.req.method} ${c.req.url} - Origin/Referer: ${origin}, IP: ${clientIp}`
   );
   return c.text("Forbidden", 403);
 };
