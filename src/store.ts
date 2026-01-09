@@ -220,6 +220,23 @@ class MemberStore {
         }
       }
 
+      // 0.5. Ko-Fi Prefix Match (Highest Confidence for Ko-Fi)
+      if (area.name.toLowerCase().startsWith("kofi")) {
+        const discordIdMatch = area.name.match(/(\d{17,20})/);
+        if (discordIdMatch) {
+          const discordId = discordIdMatch[1];
+          const kofi = kofiByDiscordId.get(discordId);
+          if (kofi) {
+            if (!areaMapByDiscordId.has(discordId)) {
+              areaMapByDiscordId.set(discordId, []);
+            }
+            areaMapByDiscordId.get(discordId)?.push(area);
+            completedDiscordIds.add(discordId);
+            return;
+          }
+        }
+      }
+
       // 1. Try Discord ID Match (17-20 digits)
       const discordIdMatch = area.name.match(/(\d{17,20})/);
       if (discordIdMatch) {
@@ -278,7 +295,8 @@ class MemberStore {
         if (area.enabled) {
           results.possibles.usernameAudit.enabled.push(area);
         } else {
-          results.possibles.usernameAudit.disabled.push(area);
+          // Remove disabled areas from username audit
+          //results.possibles.usernameAudit.disabled.push(area);
         }
       }
     });
