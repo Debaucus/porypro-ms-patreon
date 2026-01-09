@@ -142,3 +142,7 @@ vite.config.ts.timestamp-*
 
 # Keys
 keys/*
+
+# Ko-Fi members
+src/kofi.ts
+src/mappings.ts

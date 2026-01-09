@@ -1,5 +1,6 @@
 import { DragoniteArea } from "./dragonite/types";
 import { kofiMembers } from "./kofi";
+import { uuidToPatreonId } from "./mappings";
 
 export interface MemberData {
   id: string;
@@ -125,13 +126,27 @@ class MemberStore {
         disabled: [] as any[],
       },
       noDragoniteMatch: [] as any[],
+      possibles: {
+        nameMatches: [] as any[],
+        usernameAudit: {
+          enabled: [] as any[],
+          disabled: [] as any[],
+        },
+        uniqueDragoniteUuids: [] as string[],
+      },
     };
 
-    // Index members by Discord ID for faster lookup
+    // Index members by Discord ID and Patreon ID for faster lookup
     const membersByDiscordId = new Map<string, MemberData>();
+    const membersByPatreonId = new Map<string, MemberData>();
     for (const member of this.members.values()) {
-      if (member.discordId && member.status === "active_patron") {
-        membersByDiscordId.set(member.discordId, member);
+      if (member.status === "active_patron") {
+        if (member.discordId) {
+          membersByDiscordId.set(member.discordId, member);
+        }
+        if (member.patreonId) {
+          membersByPatreonId.set(member.patreonId, member);
+        }
       }
     }
 
@@ -140,24 +155,79 @@ class MemberStore {
 
     // Process Dragonite Areas
     const areaMapByDiscordId = new Map<string, any[]>();
+    const uniqueUuidSet = new Set<string>();
+    const uuidRegex =
+      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
     dragoniteAreas.forEach((area) => {
-      // Regex to find a numeric string of length 17-20 anywhere in the name
-      const match = area.name.match(/(\d{17,20})/);
-      if (match) {
-        const discordId = match[1];
+      // Collect unique UUIDs from ALL areas
+      const uuidMatch = area.name.match(uuidRegex);
+      if (uuidMatch) uniqueUuidSet.add(uuidMatch[0]);
+
+      // 1. Try Discord ID Match (17-20 digits)
+      const discordIdMatch = area.name.match(/(\d{17,20})/);
+      if (discordIdMatch) {
+        const discordId = discordIdMatch[1];
         if (!areaMapByDiscordId.has(discordId)) {
           areaMapByDiscordId.set(discordId, []);
         }
         areaMapByDiscordId.get(discordId)?.push(area);
+
+        // Also check for UUIDs inside names with IDs
+        const uuidMatch = area.name.match(uuidRegex);
+        if (uuidMatch) uniqueUuidSet.add(uuidMatch[0]);
+        return;
+      }
+
+      // 1.5. Resolve via UUID Mapping
+      if (uuidMatch) {
+        const uuid = uuidMatch[0];
+        const mappedPatreonId = uuidToPatreonId[uuid];
+        if (mappedPatreonId) {
+          const member = membersByPatreonId.get(mappedPatreonId);
+          if (member && member.discordId) {
+            // Treat as a primary match using the member's Discord ID
+            if (!areaMapByDiscordId.has(member.discordId)) {
+              areaMapByDiscordId.set(member.discordId, []);
+            }
+            areaMapByDiscordId.get(member.discordId)?.push(area);
+            return;
+          }
+        }
+      }
+
+      // 2. Secondary Check: Ko-Fi Name Match (Heuristic) - Move to possibles
+      const kofiNameMatch = kofiMembers.find((km) =>
+        area.name.toLowerCase().includes(km.fullName.toLowerCase())
+      );
+      if (kofiNameMatch) {
+        results.possibles.nameMatches.push({
+          areaId: area.id,
+          areaName: area.name,
+          enabled: area.enabled,
+          matchedKofiName: kofiNameMatch.fullName,
+          discordId: kofiNameMatch.discordId,
+        });
+      }
+
+      // 3. Primary categorization: No Discord ID Found
+      if (area.enabled) {
+        results.noDiscordIdFound.enabled.push(area);
       } else {
+        results.noDiscordIdFound.disabled.push(area);
+      }
+
+      // 4. Secondary categorization: Username Audit (Non-UUIDs without Discord ID)
+      if (!uuidMatch) {
         if (area.enabled) {
-          results.noDiscordIdFound.enabled.push(area);
+          results.possibles.usernameAudit.enabled.push(area);
         } else {
-          results.noDiscordIdFound.disabled.push(area);
+          results.possibles.usernameAudit.disabled.push(area);
         }
       }
     });
+
+    results.possibles.uniqueDragoniteUuids = Array.from(uniqueUuidSet);
 
     // Analyze Matches and Mismatches
     const matchedPatreonDiscordIds = new Set<string>();
