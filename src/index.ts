@@ -15,23 +15,45 @@ import { createServer as createHttpsServer } from "node:https";
 
 config();
 
-const app = new Hono();
-app.use("*", logger());
-
 const SECRET =
   process.env.PATREON_WEBHOOK_SECRET || process.env.PATREON_CLIENT_SECRET || "";
 
-// Cloudflare supported HTTPS ports: 443, 2053, 2083, 2087, 2096, 8443
-// Port 7730 is NOT supported by Cloudflare for HTTPS proxying.
 const PORT = Number(process.env.PORT) || 8443;
 
 // SSL Configuration
 const certPath = join(process.cwd(), "keys", "cert.pem");
 const keyPath = join(process.cwd(), "keys", "key.pem");
 
+// Security: Origin filtering middleware
+const originMiddleware = async (c: any, next: any) => {
+  // Exception for Patreon Webhooks (root path)
+  if (c.req.path === "/") {
+    return await next();
+  }
+
+  const allowedOrigin =
+    process.env.ALLOWED_ORIGIN || "https://patweb.pory.pro/";
+  const origin = c.req.header("Origin") || c.req.header("Referer");
+
+  // Allow if Origin or Referer starts with the allowed origin
+  if (origin && origin.startsWith(allowedOrigin)) {
+    return await next();
+  }
+
+  // To facilitate debugging, we log the rejected origin
+  console.warn(
+    `Access denied for ${c.req.method} ${c.req.url} - Origin/Referer: ${origin}`
+  );
+  return c.text("Forbidden", 403);
+};
+
+const app = new Hono();
+app.use("*", logger());
+app.use("*", originMiddleware);
+
 app.notFound((c) => {
-  console.log(`404 Not Found: ${c.req.method} ${c.req.url}`);
-  return c.text("Not Found", 404);
+  console.log(`403 Forbidden Emulated: ${c.req.method} ${c.req.url}`);
+  return c.text("Forbidden", 403);
 });
 
 const webhookHandler = async (c: any) => {
