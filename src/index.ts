@@ -6,6 +6,8 @@ import { handleWebhookEvent } from './handlers';
 import { syncPatreonData } from "./sync";
 import { store } from "./store";
 import { DragoniteClient } from "./dragonite/client";
+import { dragoniteStore } from "./dragonite/store";
+import { syncDragoniteData } from "./dragonite/sync";
 
 import { logger } from "hono/logger";
 
@@ -100,7 +102,7 @@ const webhookHandler = async (c: any) => {
 
 app.post("/", webhookHandler);
 
-app.get("/sync", async (c) => {
+app.get("/patreon/sync", async (c) => {
   try {
     const data = await syncPatreonData();
     return c.json({
@@ -129,51 +131,47 @@ app.get("/members", (c) => {
 });
 
 app.get("/stats", (c) => {
+  const dragoniteAreas = dragoniteStore.getAllAreas();
+  const comparisonStats = store.getComparisonStats(dragoniteAreas);
+
   return c.json({
     success: true,
-    stats: store.getScannerStats(),
+    patreonStats: store.getScannerStats(),
+    dragoniteStats: dragoniteStore.getStats(),
+    comparison: comparisonStats,
   });
 });
 
 app.get("/dragonite/status", async (c) => {
-  const url = process.env.DRAGONITE_API_URL;
-  const secret = process.env.DRAGONITE_API_SECRET;
+  return c.json({
+    success: true,
+    data: dragoniteStore.getStatusData(),
+    stats: dragoniteStore.getStats(),
+  });
+});
 
-  if (!url || !secret) {
-    return c.json(
-      {
-        success: false,
-        error: "Dragonite API configuration missing",
-      },
-      500
-    );
-  }
-
-  const client = new DragoniteClient(url, secret);
+app.get("/dragonite/sync", async (c) => {
   try {
-    const status = await client.getStatus();
+    const data = await syncDragoniteData();
+    if (!data) {
+      return c.json({ success: false, error: "Sync failed or skipped" }, 500);
+    }
     return c.json({
       success: true,
-      data: status,
+      data: data,
     });
   } catch (error: any) {
-    console.error(
-      `Failed to fetch Dragonite status from ${url}:`,
-      error.message
-    );
-    return c.json(
-      {
-        success: false,
-        error: error.message,
-      },
-      500
-    );
+    return c.json({ success: false, error: error.message }, 500);
   }
 });
 
 // Startup Sync
 syncPatreonData().catch((err) => {
   console.error("Initial startup sync failed:", err.message);
+});
+
+syncDragoniteData().catch((err) => {
+  console.error("Initial Dragonite sync failed:", err.message);
 });
 
 if (existsSync(certPath) && existsSync(keyPath)) {

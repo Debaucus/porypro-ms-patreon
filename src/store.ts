@@ -1,3 +1,6 @@
+import { DragoniteArea } from "./dragonite/types";
+import { kofiMembers } from "./kofi";
+
 export interface MemberData {
   id: string;
   patreonId: string | null;
@@ -96,6 +99,163 @@ class MemberStore {
       activePatronCount,
       totalMembers: this.members.size,
     };
+  }
+
+  getComparisonStats(dragoniteAreas: DragoniteArea[]) {
+    const scannerTiers: Record<string, number> = {
+      "22667833": 0,
+      "22667844": 1,
+      "23548893": 1,
+      "23548931": 2,
+      "23548958": 3,
+      "23548990": 4,
+      "23549000": 5,
+      "23779295": 7,
+      "23779302": 10,
+    };
+
+    const results = {
+      matches: [] as any[],
+      noPatreonMatch: {
+        enabled: [] as any[],
+        disabled: [] as any[],
+      },
+      noDiscordIdFound: {
+        enabled: [] as any[],
+        disabled: [] as any[],
+      },
+      noDragoniteMatch: [] as any[],
+    };
+
+    // Index members by Discord ID for faster lookup
+    const membersByDiscordId = new Map<string, MemberData>();
+    for (const member of this.members.values()) {
+      if (member.discordId && member.status === "active_patron") {
+        membersByDiscordId.set(member.discordId, member);
+      }
+    }
+
+    const kofiByDiscordId = new Map<string, any>();
+    kofiMembers.forEach((k) => kofiByDiscordId.set(k.discordId, k));
+
+    // Process Dragonite Areas
+    const areaMapByDiscordId = new Map<string, any[]>();
+
+    dragoniteAreas.forEach((area) => {
+      // Regex to find a numeric string of length 17-20 anywhere in the name
+      const match = area.name.match(/(\d{17,20})/);
+      if (match) {
+        const discordId = match[1];
+        if (!areaMapByDiscordId.has(discordId)) {
+          areaMapByDiscordId.set(discordId, []);
+        }
+        areaMapByDiscordId.get(discordId)?.push(area);
+      } else {
+        if (area.enabled) {
+          results.noDiscordIdFound.enabled.push(area);
+        } else {
+          results.noDiscordIdFound.disabled.push(area);
+        }
+      }
+    });
+
+    // Analyze Matches and Mismatches
+    const matchedPatreonDiscordIds = new Set<string>();
+
+    for (const [discordId, areas] of areaMapByDiscordId.entries()) {
+      const member = membersByDiscordId.get(discordId);
+
+      const totalExpectedWorkers = areas.reduce((sum, area) => {
+        return (
+          sum +
+          area.worker_managers.reduce(
+            (mSum: number, m: any) => mSum + m.expected_workers,
+            0
+          )
+        );
+      }, 0);
+
+      const areaSummary = {
+        discordId,
+        totalExpectedWorkers,
+        enabled: areas.some((a) => a.enabled),
+        areas: areas.map((a: any) => ({
+          id: a.id,
+          name: a.name,
+          enabled: a.enabled,
+        })),
+      };
+
+      const kofi = kofiByDiscordId.get(discordId);
+
+      if (member || kofi) {
+        // Calculate allowed scanners from either source
+        let allowedScanners = 0;
+        let name = "";
+        let source = "";
+
+        if (member) {
+          member.tiers.forEach((t) => {
+            allowedScanners += scannerTiers[t.id] || 0;
+          });
+          name = member.fullName;
+          source = "Patreon";
+        } else if (kofi) {
+          allowedScanners = kofi.allowedScanners;
+          name = kofi.fullName;
+          source = "Ko-Fi";
+        }
+
+        const isMismatch = totalExpectedWorkers !== allowedScanners;
+
+        results.matches.push({
+          ...areaSummary,
+          name,
+          source,
+          allowedScanners,
+          isMismatch,
+          mismatchAndEnabled: isMismatch && areaSummary.enabled,
+        });
+        matchedPatreonDiscordIds.add(discordId);
+      } else {
+        if (areaSummary.enabled) {
+          results.noPatreonMatch.enabled.push(areaSummary);
+        } else {
+          results.noPatreonMatch.disabled.push(areaSummary);
+        }
+      }
+    }
+
+    // Find Patreon members with no matching Dragonite area
+    for (const [discordId, member] of membersByDiscordId.entries()) {
+      if (!matchedPatreonDiscordIds.has(discordId)) {
+        let allowedScanners = 0;
+        member.tiers.forEach((t) => {
+          allowedScanners += scannerTiers[t.id] || 0;
+        });
+
+        results.noDragoniteMatch.push({
+          discordId,
+          name: member.fullName,
+          source: "Patreon",
+          allowedScanners,
+        });
+      }
+    }
+
+    // Find Ko-Fi members with no matching Dragonite area
+    for (const [discordId, kofi] of kofiByDiscordId.entries()) {
+      if (!matchedPatreonDiscordIds.has(discordId)) {
+        results.noDragoniteMatch.push({
+          discordId,
+          name: kofi.fullName,
+          source: "Ko-Fi",
+          allowedScanners: kofi.allowedScanners,
+        });
+      }
+    }
+
+    return results;
   }
 }
 
