@@ -5,6 +5,7 @@ import { verifyPatreonSignature } from './patreon/verify';
 import { handleWebhookEvent } from './handlers';
 import { syncPatreonData } from "./sync";
 import { store } from "./store";
+import { DragoniteClient } from "./dragonite/client";
 
 import { logger } from "hono/logger";
 
@@ -93,6 +94,39 @@ app.get("/stats", (c) => {
     success: true,
     stats: store.getScannerStats(),
   });
+});
+
+app.get("/dragonite/status", async (c) => {
+  const url = process.env.DRAGONITE_API_URL;
+  const secret = process.env.DRAGONITE_API_SECRET;
+
+  if (!url || !secret) {
+    return c.json(
+      {
+        success: false,
+        error: "Dragonite API configuration missing",
+      },
+      500
+    );
+  }
+
+  const client = new DragoniteClient(url, secret);
+  try {
+    const status = await client.getStatus();
+    return c.json({
+      success: true,
+      data: status,
+    });
+  } catch (error: any) {
+    console.error("Failed to fetch Dragonite status:", error);
+    return c.json(
+      {
+        success: false,
+        error: error.message,
+      },
+      500
+    );
+  }
 });
 
 // Startup Sync
