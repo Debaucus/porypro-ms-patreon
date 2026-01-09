@@ -40,6 +40,17 @@ export interface PatreonUser {
         user_id: string;
       } | null;
     };
+    url: string;
+  };
+}
+
+export interface PatreonTier {
+  id: string;
+  type: "tier";
+  attributes: {
+    title: string;
+    amount_cents: number;
+    description: string | null;
   };
 }
 

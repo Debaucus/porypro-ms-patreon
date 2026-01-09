@@ -1,5 +1,6 @@
 export interface MemberData {
   id: string;
+  patreonId: string | null;
   email: string;
   fullName: string;
   status: string | null;
@@ -11,6 +12,10 @@ export interface MemberData {
   isGifted: boolean;
   nextChargeDate: string | null;
   lastUpdated: number; // Unix timestamp
+  tiers: Array<{
+    id: string;
+    title: string;
+  }>;
 }
 
 class MemberStore {

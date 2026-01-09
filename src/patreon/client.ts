@@ -45,10 +45,13 @@ export class PatreonClient {
 
   private processResponse(payload: PatreonCollectionResponse<PatreonMember>) {
     const includedUsers = new Map<string, PatreonUser>();
+    const includedTiers = new Map<string, any>();
 
     payload.included?.forEach((item: any) => {
       if (item.type === "user") {
         includedUsers.set(item.id, item as PatreonUser);
+      } else if (item.type === "tier") {
+        includedTiers.set(item.id, item);
       }
     });
 
@@ -58,8 +61,29 @@ export class PatreonClient {
       const discordId =
         user?.attributes.social_connections.discord?.user_id || null;
 
+      // Extract numeric Patreon ID from the user URL (e.g. ?u=12345678)
+      let patreonId = userId; // Fallback to raw ID
+      if (user?.attributes.url) {
+        const urlMatch = user.attributes.url.match(/[?&]u=(\d+)/);
+        if (urlMatch) {
+          patreonId = urlMatch[1];
+        }
+      }
+
+      // Extract tiers
+      const tiers = (
+        member.relationships.currently_entitled_tiers?.data || []
+      ).map((t) => {
+        const tier = includedTiers.get(t.id);
+        return {
+          id: t.id,
+          title: tier?.attributes.title || "Unknown Tier",
+        };
+      });
+
       return {
-        id: member.id,
+        id: member.id, // This is the Member UUID
+        patreonId: patreonId, // This is the numeric User ID
         email: member.attributes.email,
         fullName: member.attributes.full_name,
         status: member.attributes.patron_status,
@@ -70,6 +94,7 @@ export class PatreonClient {
         isFreeTrial: member.attributes.is_free_trial,
         isGifted: member.attributes.is_gifted,
         nextChargeDate: member.attributes.next_charge_date,
+        tiers: tiers,
       };
     });
   }

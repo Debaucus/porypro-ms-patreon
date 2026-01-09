@@ -13,6 +13,7 @@ export async function handleWebhookEvent(
 
   const mappedMember: MemberData = {
     id: member.id,
+    patreonId: member.relationships?.user?.data?.id || null, // Webhooks often send the numeric ID as the user.data.id
     email: attributes.email,
     fullName: attributes.full_name,
     status: attributes.patron_status,
@@ -24,6 +25,12 @@ export async function handleWebhookEvent(
     isGifted: attributes.is_gifted,
     nextChargeDate: attributes.next_charge_date,
     lastUpdated: Date.now(),
+    tiers: (member.relationships?.currently_entitled_tiers?.data || []).map(
+      (t: any) => ({
+        id: t.id,
+        title: `Tier ${t.id}`, // Placeholder since titles aren't always in webhooks
+      })
+    ),
   };
 
   switch (event) {
